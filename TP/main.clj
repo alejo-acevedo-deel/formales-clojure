@@ -169,11 +169,42 @@
 	)
 )
 
-; Imprime, con salto de linea, atomos o listas en formato estandar (las cadenas con comillas) y devuelve su valor. Muestra errores sin parentesis. ; Aridad 1: Si recibe un escalar, lo imprime con salto de linea en formato estandar (pero si es \space no lo imprime), purga la salida y devuelve el escalar.
+; Imprime, con salto de linea, atomos o listas en formato estandar (las cadenas con comillas) y devuelve su valor. Muestra errores sin parentesis.
+; Aridad 1: Si recibe un escalar, lo imprime con salto de linea en formato estandar (pero si es \space no lo imprime), purga la salida y devuelve el escalar.
 ; Si recibe una secuencia cuyo primer elemento es '*error*, se llama recursivamente con dos argumentos iguales: la secuencia recibida.
 ; Si no, imprime lo recibido con salto de linea en formato estandar, purga la salida y devuelve la cadena.
 ; Aridad 2: Si el primer parametro es nil, imprime un salto de linea, purga la salida y devuelve el segundo parametro.
 ; Si no, imprime su primer elemento en formato estandar, imprime un espacio y se llama recursivamente con la cola del primer parametro y el segundo intacto.
 (defn imprimir
-([elem]  ) ([lis orig]  )
+	([elem]
+		(do
+			(if (seq? elem)
+				(if (= (first elem) '*error*)
+					(imprimir elem elem)
+					(println elem)
+				)
+				(if (string? elem)
+					(println (str \" elem \"))
+					(if (not (= elem \space))
+						(println elem)
+					)
+				)			
+			)
+			(purge)
+			elem
+		) 
+	)
+	([lis orig]
+		(if (nil? lis)
+			(do
+				(newline)
+				(purge)
+				orig
+			)
+			(do
+				(print (str (first lis) \space))
+				(imprimir (rest lis) orig)
+			)
+		)
+	)
 )
