@@ -160,7 +160,7 @@
 ; Recibe dos simbolos a y b. Retorna true si se deben considerar iguales; si no, false.
 ; Se utiliza porque TLC-LISP no es case-sensitive y ademas no distingue entre nil y la lista vacia.
 (defn igual? [a b]
-	(if (= (lower a) (lower b)) 
+	(if (= (lower-case a) (lower-case b)) 
 		true
 		(if (or (and (= a nil) (list? b)) (and (list? a) (= b nil)))
 			true
@@ -237,27 +237,53 @@
 
 ; Revisa una lista que representa una funcion.
 ; Recibe la lista y, si esta comienza con '*error*, la retorna. Si no, retorna nil.
-(defn revisar-f [lis]
-	(if (nil? (first lis))
-		lis
-		nil
-	)
+(defn revisar-f [lis]	
+	(if (nil? (first lis)) lis nil)
 )
 
 ; Revisa una lista de argumentos evaluados.
 ; Recibe la lista y, si esta contiene alguna sublista que comienza con '*error*, retorna esa sublista. Si no, retorna nil.
 (defn revisar-lae [lis]
-	(flattenn 
-		(seq 
-			(filter
-				(fn [arg]
-					(and (seq? arg) (= (first arg) '*error*))
-				)
-				lis
+	(first 
+		(filter
+			(fn [arg]
+				(and (seq? arg) (= (first arg) '*error*))
 			)
+			lis
 		)
 	)
 )
 
+; Busca una clave en un ambiente (una lista con claves en las posiciones impares [1, 3, 5...] y valores en las pares [2, 4, 6...] y retorna el valor asociado
+; Si no la encuentra, retorna una lista con '*error* en la 1ra. pos., 'unbound-symbol'unbound en la 2da. y el elemento en la 3ra.
+(defn buscar [elem lis]
+	(or 
+		(get (zipmap (take-nth 2 list) (take-nth 2 (rest list))) elem)
+		(list '*error* "unbound-symbol" elem)
+	)
+)
 
+; Evalua el cuerpo de una macro COND. Siempre retorna una lista con un resultado y un ambiente.
+; Recibe una lista de sublistas (cada una de las cuales tiene una condicion en su 1ra. posicion) y los ambientes global y local.
+; Si la lista es nil, el resultado es nil y el ambiente retornado es el global.
+; Si no, evalua (con evaluar) la cabeza de la 1ra. sublista y, si el resultadores no es nil, retorna el res. de invocar a evaluar-secuenciasecuencia-en-cond con la cola de esa sublista.
+; En caso contrario, sigue con las demas sublistas.
+(defn evaluar-cond [lis amb-global amb-local]
+	(if (nil? lis)
+		(list nil amb-global)
+		(if (evaluar (first (first list)) amb-global amb-local)
+			(evaluar-secuencia-en-cond (rest (first lis)) amb-global amb-local)
+			(evaluar-cond (next lis) amb-global amb-local)
+		)
+	)
+)
 
+; Evalua (con evaluar) secuencialmente las sublistas de una lista y retorna el valor de la ultima evaluacion. 
+(defn evaluar-secuencia-en-cond [lis amb-global amb-local]
+	(last 
+		(map 
+			#(evaluar % amb-global amb-local)
+			lis
+		)
+	)
+)
