@@ -235,4 +235,29 @@
 	)
 )
 
+; Revisa una lista que representa una funcion.
+; Recibe la lista y, si esta comienza con '*error*, la retorna. Si no, retorna nil.
+(defn revisar-f [lis]
+	(if (nil? (first lis))
+		lis
+		nil
+	)
+)
+
+; Revisa una lista de argumentos evaluados.
+; Recibe la lista y, si esta contiene alguna sublista que comienza con '*error*, retorna esa sublista. Si no, retorna nil.
+(defn revisar-lae [lis]
+	(flattenn 
+		(seq 
+			(filter
+				(fn [arg]
+					(and (seq? arg) (= (first arg) '*error*))
+				)
+				lis
+			)
+		)
+	)
+)
+
+
 
