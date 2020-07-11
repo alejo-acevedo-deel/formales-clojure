@@ -208,3 +208,31 @@
 		)
 	)
 )
+
+; Actualiza un ambiente (una lista con claves en las posiciones impares [1, 3, 5...] y valores en las pares [2, 4, 6...] 
+; Recibe el ambiente, la clave y el valor.
+; Si el valor no es escalar y en su primera posicion contiene '*error*, retorna el ambiente intacto.
+; Si no, coloca la clave y el valor en el ambientebiente (puede ser un alta o una actualizacion) y lo retorna.
+
+(defn actualizar-amb [amb-global clave valor]
+	(if (and (seq? valor) (= (first valor) '*error*))
+		amb-global
+		(if (some #(= % clave) (take-nth 2 amb-global))
+			(flatten
+				(map
+					(fn [amb-clave amb-valor]
+						(if (= amb-clave clave)
+							(list amb-clave valor)
+							(list amb-clave amb-valor)
+						) 
+					)
+					(take-nth 2 amb-global)
+					(take-nth 2 (rest amb-global))
+				)
+			)
+			(conj amb-global clave valor)
+		)
+	)
+)
+
+
