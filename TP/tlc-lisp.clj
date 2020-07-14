@@ -143,13 +143,13 @@
 ; Falta hacer que la carga del interprete en Clojure (tlc-lisp.clj) retorne true
 
 
-; Compara la igualdad de dos simbolos.
-; Recibe dos simbolos a y b. Retorna true si se deben considerar iguales; si no, false.
-; Se utiliza porque TLC-LISP no es case-sensitive y ademas no distingue entre nil y la lista vacia.
-(defn controlar-aridad [list val-esperado]
-	(if (< (count list) val-esperado
+; Recibe una lista y un numero. Si la longitud de la lista coincide con el numero, retorna el numero.
+; Si es menor, retorna (list '*error* 'too-few-args).
+; Si es mayor, retorna (list '*error* 'too-many-args).
+(defn controlar-aridad [lis val-esperado]
+	(if (< (count lis) val-esperado)
 		(list '*error* 'too-few-args)
-		(if (> (count list) val-esperado)
+		(if (> (count lis) val-esperado)
 			(list '*error* 'too-many-args)
 			val-esperado
 		)
@@ -160,12 +160,10 @@
 ; Recibe dos simbolos a y b. Retorna true si se deben considerar iguales; si no, false.
 ; Se utiliza porque TLC-LISP no es case-sensitive y ademas no distingue entre nil y la lista vacia.
 (defn igual? [a b]
-	(if (= (lower-case a) (lower-case b)) 
-		true
-		(if (or (and (= a nil) (list? b)) (and (list? a) (= b nil)))
-			true
-			false
-		)
+	(or 
+		(= a b)
+		(and (and (string? a) (string? b)) (= (clojure.string/lower-case a) (clojure.string/lower-case b)))
+		(or (and (= a nil) (and (list? b) (empty? b))) (and (and (list? a) (empty? a)) (= b nil)))
 	)
 )
 
@@ -190,7 +188,7 @@
 					)
 				)			
 			)
-			(purge)
+			(flush)
 			elem
 		) 
 	)
@@ -198,12 +196,12 @@
 		(if (nil? lis)
 			(do
 				(newline)
-				(purge)
+				(flush)
 				orig
 			)
 			(do
 				(print (str (first lis) \space))
-				(imprimir (rest lis) orig)
+				(imprimir (next lis) orig)
 			)
 		)
 	)
@@ -212,44 +210,33 @@
 ; Actualiza un ambiente (una lista con claves en las posiciones impares [1, 3, 5...] y valores en las pares [2, 4, 6...] 
 ; Recibe el ambiente, la clave y el valor.
 ; Si el valor no es escalar y en su primera posicion contiene '*error*, retorna el ambiente intacto.
-; Si no, coloca la clave y el valor en el ambientebiente (puede ser un alta o una actualizacion) y lo retorna.
+; Si no, coloca la clave y el valor en el ambiente (puede ser un alta o una actualizacion) y lo retorna.
+
+(defn reconstruir-amb [amb-global-maped]
+	(interleave (keys amb-global-maped) (vals amb-global-maped))
+)
 
 (defn actualizar-amb [amb-global clave valor]
 	(if (and (seq? valor) (= (first valor) '*error*))
 		amb-global
-		(if (some #(= % clave) (take-nth 2 amb-global))
-			(flatten
-				(map
-					(fn [amb-clave amb-valor]
-						(if (= amb-clave clave)
-							(list amb-clave valor)
-							(list amb-clave amb-valor)
-						) 
-					)
-					(take-nth 2 amb-global)
-					(take-nth 2 (rest amb-global))
-				)
-			)
-			(conj amb-global clave valor)
-		)
+		(reconstruir-amb (assoc (zipmap (take-nth 2 amb-global) (take-nth 2 (rest amb-global))) clave valor))    
 	)
 )
 
 ; Revisa una lista que representa una funcion.
 ; Recibe la lista y, si esta comienza con '*error*, la retorna. Si no, retorna nil.
 (defn revisar-f [lis]	
-	(if (nil? (first lis)) lis nil)
+	(if (= (first lis) '*error*) lis nil)
 )
 
 ; Revisa una lista de argumentos evaluados.
 ; Recibe la lista y, si esta contiene alguna sublista que comienza con '*error*, retorna esa sublista. Si no, retorna nil.
 (defn revisar-lae [lis]
-	(first 
-		(filter
-			(fn [arg]
-				(and (seq? arg) (= (first arg) '*error*))
-			)
-			lis
+	(if (nil? lis)
+		nil
+		(if (seq? (first lis))
+			(or (revisar-f (first lis)) (revisar-lae (next lis)))
+			(revisar-lae (next lis))
 		)
 	)
 )
@@ -258,8 +245,8 @@
 ; Si no la encuentra, retorna una lista con '*error* en la 1ra. pos., 'unbound-symbol'unbound en la 2da. y el elemento en la 3ra.
 (defn buscar [elem lis]
 	(or 
-		(get (zipmap (take-nth 2 list) (take-nth 2 (rest list))) elem)
-		(list '*error* "unbound-symbol" elem)
+		(get (zipmap (take-nth 2 lis) (take-nth 2 (rest lis))) elem)
+		(list '*error* 'unbound-symbol elem)
 	)
 )
 
