@@ -11,6 +11,198 @@
 (declare evaluar-cond)
 (declare evaluar-secuencia-en-cond)
 
+; ################################### FUNCIONES APLICAR ###############################
+
+(defn add_lsp [lae]
+	(if (< (count lae) 2)
+		(list '*error* 'too-few-args)
+		(try (reduce + lae) 
+		(catch Exception e (list '*error* 'number-expected)))
+	)
+)
+
+(defn append_lsp [lae]
+	(let [ari (controlar-aridad lae 2)]
+		(cond
+			(seq? ari) ari
+			(and (nil? (first lae)) (nil? (second lae))) nil
+			(some (fn [elem] (not (or (seq? elem) (nil? elem))))) (list '*error* 'list 'expected)
+			true (concat (first lae) (second lae))
+		)
+	)
+)
+
+(defn cons_lsp [lae]
+	(let [ari (controlar-aridad lae 2)]
+		(cond
+			(seq? ari) ari
+			(or (igual? (first lae) nil) (igual? (second lae) nil)) nil
+			true (cons (first lae) (second lae))
+		)
+	)
+)
+
+(defn env_lsp [lae amb-global amb-local]
+	(if (> (count lae) 0)
+		(list '*error* 'too-many-args)
+		(concat amb-global amb-local)
+	)
+)
+
+(defn equal_lsp [lae]
+	(let [ari (controlar-aridad lae 2)]
+		(cond
+			(seq? ari) ari
+			(igual? (first lae) (second lae)) 't
+			true nil
+		)
+	)
+)
+
+(defn eval_lsp [lae]
+	(first (evaluar (first lae)))
+)
+
+(defn first_lsp [lae]
+	(let [ari (controlar-aridad lae 1)]
+		(cond 
+			(seq? ari) ari
+			(igual? (first lae) nil) nil
+			(not (seq? (first lae))) (list '*error* 'list 'expected (first lae))
+			true (ffirst lae)
+		)
+	)
+)
+
+(defn ge_lsp [lae]
+	(let [ari (controlar-aridad lae 2)]
+		(cond
+			(seq? ari) ari
+			(not-every? number? lae) (list '*error* 'number-expected)
+			true	(if (>= (first lae) (second lae))
+						't
+						nil
+					)
+		)
+	)
+)
+
+(defn gt_lsp [lae]
+	(let [ari (controlar-aridad lae 2)]
+		(cond
+			(seq? ari) ari
+			(not-every? number? lae) (list '*error* 'number-expected)
+			true	(if (> (first lae) (second lae))
+						't
+						nil
+					)		
+		)
+	)
+)
+
+(defn length_lsp [lae]
+	(let [ari (controlar-aridad lae 1)]
+		(cond
+			(seq? ari) ari
+			(or (seq? (first lae)) (nil? (first lae))) (list '*error* 'arg_wrong-type)
+			true (count (first lae))
+		)
+	)
+)
+
+(defn list_lsp [lae]
+	(if (empty? lae)
+		nil
+		lae
+	)
+)
+
+(defn lt_lsp [lae]
+	(let [ari (controlar-aridad lae 2)]
+		(cond
+			(seq? ari) ari
+			(not-every? number? lae) (list '*error* 'number-expected)
+			true	(if (< (first lae) (second lae))
+						't
+						nil
+					)		
+		)
+	)
+)
+
+(defn not_lsp [lae]
+	(let [ari (controlar-aridad lae 1)]
+		(cond
+			(seq? ari) ari
+			true (not (first lae))
+		)
+	)
+)
+
+(defn null_lsp [lae]
+	(let [ari (controlar-aridad lae 1)]
+		(cond
+			(seq? ari) ari
+			true (if (nil? (first lae)) 't nil)
+		)
+	)
+)
+
+(defn prin3_lsp [lae]
+	(let [ari (controlar-aridad lae 1)]
+		(cond
+			(seq? ari) ari
+			(and (seq? (first lae)) (empty? (first lae))) (print nil)
+			true (do (print (first lae)) (first lae))
+		)
+	)
+)
+
+(defn read_lsp [lae]
+	(let [ari (controlar-aridad lae 0)]
+		(cond
+			(seq? ari) ari
+			true (read)
+		)
+	)
+)
+
+(defn rest_lsp [lae]
+	(let [ari (controlar-aridad lae 1)]
+		(cond
+			(seq? ari) ari
+			(not (seq? (first lae))) (list '*error* 'list 'expected)
+			true (next (first lae))
+		)
+	)
+)
+
+(defn reverse_lsp [lae]
+	(let [ari (controlar-aridad lae 1)]
+		(cond
+			(seq? ari) ari
+			(igual? (first lae) nil) nil
+			(not (seq?) (first lae)) (list '*error* 'list 'expected (first lae))
+			true (reverse (first lae))
+		)
+	)
+)
+
+(defn sub_lsp [lae]
+	(if (< (count lae) 2)
+		(list '*error* 'too-few-args)
+		(try (reduce - lae) 
+		(catch Exception e (list '*error* 'number-expected)))
+	)
+)
+
+(defn terpri_lsp [lae]
+	(if (> (count lae) 0)
+		(list '*error* 'too-many-args)
+		(println) 
+	)
+)
+
 ; REPL (read–eval–print loop).
 ; Aridad 0: Muestra mensaje de bienvenida y se llama recursivamente con el ambiente inicial.
 ; Aridad 1: Muestra >>> y lee una expresion y la evalua.
@@ -100,7 +292,6 @@
 			  								(list nil amb-global)
 											(or (evaluar (second expre amb-global amb-local)) (evaluar (cons 'or (nnext expre)) amb-global amb-local))
 										  )
-			  (list (or (evaluar (second expre))))
 			  true (aplicar (first (evaluar (first expre) amb-global amb-local)) (map (fn [x] (first (evaluar x amb-global amb-local))) (next expre)) amb-global amb-local)))
 )
 
@@ -126,7 +317,7 @@
 						  		(igual? f 'add) (add_lsp lae)
 								(igual? f 'append) (append_lsp lae)
 								(igual? f 'cons) (cons_lsp lae)
-								(igual? f 'env) (env_lsp lae)
+								(igual? f 'env) (env_lsp lae amb-global amb-local)
 								(igual? f 'equal) (equal_lsp lae)
 								(igual? f 'eval) (eval_lsp lae)
 								(igual? f 'first) (first_lsp lae)
@@ -197,6 +388,8 @@
 		(= a b)
 		(and (and (string? a) (string? b)) (= (clojure.string/lower-case a) (clojure.string/lower-case b)))
 		(or (and (= a nil) (and (list? b) (empty? b))) (and (and (list? a) (empty? a)) (= b nil)))
+		(or (and (= a nil) (= b 'NIL)) (and (= a 'NIL) (= b nil)))
+		(or (and (= a nil) (= b "NIL")) (and (= a "NIL") (= b nil)))
 	)
 )
 
@@ -301,204 +494,10 @@
 
 ; Evalua (con evaluar) secuencialmente las sublistas de una lista y retorna el valor de la ultima evaluacion. 
 (defn evaluar-secuencia-en-cond [lis amb-global amb-local]
-	(last 
-		(map 
-			#(evaluar % amb-global amb-local)
-			lis
+	(if (nil? (next lis))
+		(evaluar (first lis) amb-global amb-local)
+		(let [res (evaluar (first lis) amb-global amb-local)]
+			(evaluar-secuencia-en-cond (next lis) (second res) amb-local)
 		)
 	)
 )
-
-; ################################### FUNCIONES APLICAR ###############################
-
-(defn add_lsp [lae]
-	(if (< (count lae) 2)
-		(list '*error* 'too-few-args)
-		(try (reduce + lae) 
-		(catch Exception e (list '*error* 'number-expected)))
-	)
-)
-
-(defn append_lsp [lae]
-	(let [air (controlar-aridad lae 2)]
-		(cond
-			(seq? ari) ari
-			(and (nil? (first lae)) (nil? (second lae))) nil
-			(some (fn [elem] (not (or (seq? elem) (nil? elem))))) (list '*error* 'list 'expected)
-			true (concat (first lae) (second lae))
-		)
-	)
-)
-
-(defn cons_lsp [lae]
-	(let [ari (controlar-aridad lae 2)]
-		(cond
-			(seq? ari) ari
-			(or (igual? (first lae) nil) (igual? (second lae) nil)) nil
-			true (cons (first lae) (second lae))
-		)
-	)
-)
-
-(defn env_lsp [lae]
-	(if (> (count lae) 0)
-		(list '*error* 'too-many-args)
-		(concat amb-global amb-local)
-	)
-)
-
-(defn equal_lsp [lae]
-	(let [ari (controlar-aridad lae 2)]
-		(cond
-			(seq? ari) ari
-			(igual? (first lae) (second lae)) 't
-			true nil
-		)
-	)
-)
-
-(defn eval_lsp [lae]
-	(first (evaluar (first lae)))
-)
-
-(defn first_lsp [lae]
-	(let [ari (controlar-aridad lae 1)]
-		(cond 
-			(seq? ari) ari
-			(igual? (first lae) nil) nil
-			(not (seq? (first lae))) (list '*error* 'list 'expected (first lae))
-			true (ffirst lae)
-		)
-	)
-)
-
-(defn ge_lsp [lae]
-	(let [ari (controlar-aridad lae 2)]
-		(cond
-			(seq? ari) ari
-			(not-every? number? lae) (list '*error* 'number-expected)
-			true	(if (>= (first lae) (second lae)))
-						't
-						nil
-		)
-	)
-)
-
-(defn gt_lsp [lae]
-	(let [ari (controlar-aridad lae 2)]
-		(cond
-			(seq? ari) ari
-			(not-every? number? lae) (list '*error* 'number-expected)
-			true	(if (> (first lae) (second lae))
-						't
-						nil
-					)		
-		)
-	)
-)
-
-(defn length_lsp [lae]
-	(let [ari (controlar-aridad lae 1)]
-		(cond
-			(seq? ari) ari
-			(or (seq? (first lae)) (nil? (first lae))) (list '*error* 'arg_wrong-type)
-			true (count (first lae))
-		)
-	)
-)
-
-(defn list_lsp [lae]
-	(if (empty? lae)
-		return nil
-		return lae
-	)
-)
-
-(defn lt_lsp [lae]
-	(let [ari (controlar-aridad lae 2)]
-		(cond
-			(seq? ari) ari
-			(not-every? number? lae) (list '*error* 'number-expected)
-			true	(if (< (first lae) (second lae))
-						't
-						nil
-					)		
-		)
-	)
-)
-
-(defn not_lsp [lae]
-	(let [ari (controlar-aridad lae 1)]
-		(cond
-			(seq? ari) ari
-			true (not (first lae))
-		)
-	)
-)
-
-(defn null_lsp [lae]
-	(let [ari (controlar-aridad lae 1)]
-		(cond
-			(seq? ari) ari
-			(if (nil? (first lae)) 't nil)
-		)
-	)
-)
-
-(defn prin3_lsp [lae]
-	(let [ari (controlar-aridad lae 1)]
-		(cond
-			(seq? ari) ari
-			(and (seq? (first lae)) (empty? (first lae))) (print nil)
-			true (do (print (first lae)) (first lae))
-		)
-	)
-)
-
-(defn read_lsp [lae]
-	(let [ari (controlar-aridad lae 0)]
-		(cond
-			(seq? ari) ari
-			true (read)
-		)
-	)
-)
-
-(defn rest_lsp [lae]
-	(let [ari (controlar-aridad lae 1)]
-		(cond
-			(seq? ari) ari
-			(not (seq? (first lae))) (list '*error* 'list 'expected)
-			true (next (first lae))
-		)
-	)
-)
-
-(defn reverse_lsp [lae]
-	(let [ari (controlar-aridad lae 1)]
-		(cond
-			(seq? ari) ari
-			(igual? (first lae) nil) nil
-			(not (seq?) (first lae)) (list '*error* 'list 'expected (first lae))
-			true (reverse (first lae))
-		)
-	)
-)
-
-(defn sub_lsp [lae]
-	(if (< (count lae) 2)
-		(list '*error* 'too-few-args)
-		(try (reduce - lae) 
-		(catch Exception e (list '*error* 'number-expected)))
-	)
-)
-
-(defn terpri_lsp [lae]
-	(if (> (count lae) 0)
-		(list '*error* 'too-many-args)
-		(println) 
-	)
-)
-
-
-
