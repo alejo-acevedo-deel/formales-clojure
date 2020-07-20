@@ -26,7 +26,7 @@
 		(cond
 			(seq? ari) ari
 			(and (nil? (first lae)) (nil? (second lae))) nil
-			(some (fn [elem] (not (or (seq? elem) (nil? elem))))) (list '*error* 'list 'expected)
+			(some (fn [elem] (not (or (seq? elem) (nil? elem)))) lae) (list '*error* 'list 'expected)
 			true (concat (first lae) (second lae))
 		)
 	)
@@ -36,7 +36,7 @@
 	(let [ari (controlar-aridad lae 2)]
 		(cond
 			(seq? ari) ari
-			(or (igual? (first lae) nil) (igual? (second lae) nil)) nil
+			(not (or (seq? (second lae)) (nil? (second lae)))) (list '*error* 'list 'expected (second lae))
 			true (cons (first lae) (second lae))
 		)
 	)
@@ -59,8 +59,8 @@
 	)
 )
 
-(defn eval_lsp [lae]
-	(first (evaluar (first lae)))
+(defn eval_lsp [lae amb-global amb-local]
+	(first (evaluar (first lae) amb-global amb-local))
 )
 
 (defn first_lsp [lae]
@@ -134,7 +134,10 @@
 	(let [ari (controlar-aridad lae 1)]
 		(cond
 			(seq? ari) ari
-			true (not (first lae))
+			true (if (first lae)
+				nil
+				't
+			)
 		)
 	)
 )
@@ -153,7 +156,7 @@
 		(cond
 			(seq? ari) ari
 			(and (seq? (first lae)) (empty? (first lae))) (print nil)
-			true (do (print (first lae)) (first lae))
+			true (do (print (first lae)) (flush) (first lae))
 		)
 	)
 )
@@ -171,7 +174,7 @@
 	(let [ari (controlar-aridad lae 1)]
 		(cond
 			(seq? ari) ari
-			(not (seq? (first lae))) (list '*error* 'list 'expected)
+			(not (or (seq? (first lae)) (nil? (first lae)))) (list '*error* 'list 'expected)
 			true (next (first lae))
 		)
 	)
@@ -182,7 +185,7 @@
 		(cond
 			(seq? ari) ari
 			(igual? (first lae) nil) nil
-			(not (seq?) (first lae)) (list '*error* 'list 'expected (first lae))
+			(not (seq? (first lae))) (list '*error* 'list 'expected (first lae))
 			true (reverse (first lae))
 		)
 	)
@@ -248,7 +251,7 @@
   		     ret))))
   ([amb-global amb-local in res]
     (try (let [res (evaluar (read in) amb-global nil)] (cargar-arch (fnext res) nil in res))
-         (catch Exception e (imprimir (first res)) amb-global)))
+         (catch Exception e (imprimir (first res)) (list true amb-global))))
 )
 
 ; Evalua una expresion usando los ambientes global y local. Siempre retorna una lista con un resultado y un ambiente.
@@ -284,14 +287,14 @@
 											       true (list expre amb-global))
    			  (igual? (first expre) 'cond) (evaluar-cond (next expre) amb-global amb-local)
 			  (igual? (first expre) 'if) (if (first (evaluar (second expre) amb-global amb-local)) 
-			  								(evaluar (nth 3 expre) amb-global amb-local)
-											(evaluar (nth 4 expre) amb-global amb-local)
+			  								(evaluar (nth expre 2 'nil) amb-global amb-local)
+											(evaluar (nth expre 3 'nil) amb-global amb-local)
 										)
-			  (igual? (first expre) 'load) (list (cargar-arch amb-global amb-local (first (evaluar (second expre amb-global amb-local)))) amb-global)
-			  (igual? (first expre) 'or) (if (nil? (second expre))
-			  								(list nil amb-global)
-											(or (evaluar (second expre amb-global amb-local)) (evaluar (cons 'or (nnext expre)) amb-global amb-local))
-										  )
+			  (igual? (first expre) 'load) (cargar-arch amb-global amb-local (second expre))
+			  (igual? (first expre) 'or) (list (if (and (<= (count expre) 2) (nil? (second expre)))
+			  								nil
+											(or (first (evaluar (second expre) amb-global amb-local)) (first (evaluar (cons 'or (nnext expre)) amb-global amb-local)))
+										  ) amb-global)
 			  true (aplicar (first (evaluar (first expre) amb-global amb-local)) (map (fn [x] (first (evaluar x amb-global amb-local))) (next expre)) amb-global amb-local)))
 )
 
@@ -306,59 +309,47 @@
 ; en caso de haber multiples cuerpos, se llama a aplicar recursivamente, pasando la funcion lambda sin el primer cuerpo, la lista de argumentos evaluados,
 ; el amb. global actualizado con la eval. del 1er. cuerpo (usando el amb. global intacto y el local actualizado con los params. ligados a los args.) y el amb. local intacto. 
 (defn aplicar
-   	([f lae amb-global amb-local]
-    	(aplicar (revisar-f f) (revisar-lae lae) f lae amb-global amb-local))
-   	([resu1 resu2 f lae amb-global amb-local]
-    	(cond 
-	  		resu1	(list resu1 amb-global)
-		    resu2	(list resu2 amb-global)
-		    true 	(if (not (seq? f))
-		          		(list (cond
-						  		(igual? f 'add) (add_lsp lae)
-								(igual? f 'append) (append_lsp lae)
-								(igual? f 'cons) (cons_lsp lae)
-								(igual? f 'env) (env_lsp lae amb-global amb-local)
-								(igual? f 'equal) (equal_lsp lae)
-								(igual? f 'eval) (eval_lsp lae)
-								(igual? f 'first) (first_lsp lae)
-								(igual? f 'ge) (ge_lsp lae)
-								(igual? f 'gt) (gt_lsp lae)
-								(igual? f 'length) (length_lsp lae)
-								(igual? f 'list) (list_lsp lae)
-								(igual? f 'lt) (lt_lsp lae)
-								(igual? f 'not) (not_lsp lae)
-								(igual? f 'null) (null_lsp lae)
-								(igual? f 'prin3) (prin3_lsp lae)
-								(igual? f 'read) (read_lsp lae)
-								(igual? f 'rest) (rest_lsp lae)
-								(igual? f 'reverse) (reverse_lsp lae)
-								(igual? f 'sub) (sub_lsp lae)
-								(igual? f 'terpri) (terpri_lsp lae)
-								(igual? f '+) (add_lsp lae)
-								(igual? f '-) (sub_lsp lae)
-
-								true	(let [lamb (buscar f (concat amb-local amb-global))]
-											(cond 
-												(or (number? lamb) (igual? lamb 't) (igual? lamb nil)) (list '*error* 'non-applicable-type lamb)
-												(or (number? f) (igual? f 't) (igual? f nil)) (list '*error* 'non-applicable-type f)
-												(igual? (first lamb) '*error*) lamb
-												true (aplicar lamb lae amb-global amb-local)
-											)		
-										)
-							  ) amb-global
-						)
-						(cond 
-							(< (count lae) (count (fnext f))) (list (list '*error* 'too-few-args) amb-global)
-					    	(> (count lae) (count (fnext f))) (list (list '*error* 'too-many-args) amb-global)
-					    	true (if (nil? (next (nnext f)))
-					        		(evaluar (first (nnext f)) amb-global (concat (reduce concat (map list (fnext f) lae)) amb-local))
-						        	(aplicar (cons 'lambda (cons (fnext f) (next (nnext f)))) lae (fnext (evaluar (first (nnext f)) amb-global (concat (reduce concat (map list (fnext f) lae)) amb-local))) amb-local)
-							 	 )
-						)
-				   	)
-	 	)
-	)
-)
+	([f lae amb-global amb-local]
+	   (aplicar (revisar-f f) (revisar-lae lae) f lae amb-global amb-local))
+	([resu1 resu2 f lae amb-global amb-local]
+	   (cond resu1 (list resu1 amb-global)
+			 resu2 (list resu2 amb-global)
+			 true  (if (not (seq? f))
+					   (list (cond
+							(igual? f 'add) (add_lsp lae)
+							(igual? f 'append) (append_lsp lae)
+							(igual? f 'cons) (cons_lsp lae)
+							(igual? f 'env) (env_lsp lae amb-global amb-local)
+							(igual? f 'equal) (equal_lsp lae)
+							(igual? f 'eval) (eval_lsp lae amb-global amb-local)
+							(igual? f 'first) (first_lsp lae)
+							(igual? f 'ge) (ge_lsp lae)
+							(igual? f 'gt) (gt_lsp lae)
+							(igual? f 'length) (length_lsp lae)
+							(igual? f 'list) (list_lsp lae)
+							(igual? f 'lt) (lt_lsp lae)
+							(igual? f 'not) (not_lsp lae)
+							(igual? f 'null) (null_lsp lae)
+							(igual? f 'prin3) (prin3_lsp lae)
+							(igual? f 'read) (read_lsp lae)
+							(igual? f 'rest) (rest_lsp lae)
+							(igual? f 'reverse) (reverse_lsp lae)
+							(igual? f 'sub) (sub_lsp lae)
+							(igual? f 'terpri) (terpri_lsp lae)
+							(igual? f '+) (add_lsp lae)
+							(igual? f '-) (sub_lsp lae)
+							 true (let [lamb (buscar f (concat amb-local amb-global))]
+									 (cond (or (number? lamb) (igual? lamb 't) (igual? lamb nil)) (list '*error* 'non-applicable-type lamb)
+										   (or (number? f) (igual? f 't) (igual? f nil)) (list '*error* 'non-applicable-type f)
+										   (igual? (first lamb) '*error*) lamb
+											true (aplicar lamb lae amb-global amb-local)))) amb-global)
+					 (cond (< (count lae) (count (fnext f))) (list (list '*error* 'too-few-args) amb-global)
+						   (> (count lae) (count (fnext f))) (list (list '*error* 'too-many-args) amb-global)
+						   true (if (nil? (next (nnext f)))
+									(evaluar (first (nnext f)) amb-global (concat (reduce concat (map list (fnext f) lae)) amb-local))
+									(aplicar (cons 'lambda (cons (fnext f) (next (nnext f)))) lae (fnext (evaluar (first (nnext f)) amb-global (concat (reduce concat (map list (fnext f) lae)) amb-local))) amb-local))))))
+ )
+ 
 
 ; Falta terminar de implementar las 2 funciones anteriores (aplicar y evaluar)
 
@@ -386,8 +377,10 @@
 (defn igual? [a b]
 	(or 
 		(= a b)
-		(and (and (string? a) (string? b)) (= (clojure.string/lower-case a) (clojure.string/lower-case b)))
+		(and (not (or (nil? a) (nil? b))) (= (clojure.string/lower-case a) (clojure.string/lower-case b)))
 		(or (and (= a nil) (and (list? b) (empty? b))) (and (and (list? a) (empty? a)) (= b nil)))
+		(or (and (= a 'NIL) (and (list? b) (empty? b))) (and (and (list? a) (empty? a)) (= b 'NIL)))
+		(or (and (= a "NIL") (and (list? b) (empty? b))) (and (and (list? a) (empty? a)) (= b "NIL")))
 		(or (and (= a nil) (= b 'NIL)) (and (= a 'NIL) (= b nil)))
 		(or (and (= a nil) (= b "NIL")) (and (= a "NIL") (= b nil)))
 	)
@@ -471,9 +464,10 @@
 ; Busca una clave en un ambiente (una lista con claves en las posiciones impares [1, 3, 5...] y valores en las pares [2, 4, 6...] y retorna el valor asociado
 ; Si no la encuentra, retorna una lista con '*error* en la 1ra. pos., 'unbound-symbol'unbound en la 2da. y el elemento en la 3ra.
 (defn buscar [elem lis]
-	(or 
-		(get (zipmap (take-nth 2 lis) (take-nth 2 (rest lis))) elem)
-		(list '*error* 'unbound-symbol elem)
+	(cond 
+		(nil? lis) (list '*error* 'unbound-symbol elem)
+		(igual? elem (first lis)) (fnext lis)
+		true (buscar elem (nnext lis))
 	)
 )
 
